@@ -4,7 +4,7 @@ import { inferAsyncReturnType } from '@trpc/server'
 import { PrismaClient } from '@prisma/client'
 import { z } from 'zod';
 import * as trpcExpress from '@trpc/server/adapters/express';
-
+import cors from 'cors'
 
 const prisma = new PrismaClient()
 const app = express();
@@ -22,7 +22,6 @@ const appRouter = router({
 	userList: publicProcedure
 		.query(async () => {
 			const users = await prisma.user.findMany()
-			// const users = [{ user: 1 }]
 			return users
 		}),
 	userById: publicProcedure
@@ -35,11 +34,25 @@ const appRouter = router({
 				}
 			})
 			return user
+		}),
+	userCreate: publicProcedure
+		.input(z.object({ publicId: z.string(), email: z.string(), password: z.string() }))
+		.mutation(async (opts) => {
+			const { input } = opts
+
+			const user = await prisma.user.create({
+				data: input
+			})
+
+			return user
 		})
 })
 
+app.use(cors())
+
 app.use(
 	'/trpc',
+	cors({ origin: 'http://localhost:5173' }),
 	trpcExpress.createExpressMiddleware({
 		router: appRouter,
 		createContext: context,
