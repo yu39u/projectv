@@ -1,0 +1,103 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             Int              @id @default(autoincrement())
+  email          String           @unique
+  publicId       String           @unique
+  password       String
+  posts          Post[]
+  Profile        Profile?
+  Reply          Reply[]
+  ReplyVote      ReplyVote[]
+  PostOptionVote PostOptionVote[]
+  following      Follow[]         @relation("UserFollowing")
+  followedBy     Follow[]         @relation("UserFollowedBy")
+}
+
+model Follow {
+  id           Int  @id @default(autoincrement())
+  followingId  Int
+  following    User @relation("UserFollowing", fields: [followingId], references: [id])
+  followedById Int
+  followedBy   User @relation("UserFollowedBy", fields: [followedById], references: [id])
+}
+
+model Profile {
+  id         Int    @id @default(autoincrement())
+  name       String
+  masterData User   @relation(fields: [userId], references: [id])
+  userId     Int    @unique
+}
+
+model Board {
+  id      Int     @id @default(autoincrement())
+  name    String
+  content String?
+  Post    Post[]
+}
+
+model Post {
+  id         Int          @id @default(autoincrement())
+  title      String
+  content    String?
+  url        String?
+  published  Boolean      @default(false)
+  author     User         @relation(fields: [userId], references: [id])
+  userId     Int
+  Reply      Reply[]
+  PostOption PostOption[]
+  board      Board        @relation(fields: [boardId], references: [id])
+  boardId    Int
+}
+
+model PostOption {
+  id             Int              @id @default(autoincrement())
+  post           Post             @relation(fields: [postId], references: [id])
+  postId         Int
+  contet         String
+  PostOptionVote PostOptionVote[]
+}
+
+model PostOptionVote {
+  id           Int        @id @default(autoincrement())
+  voter        User       @relation(fields: [userId], references: [id])
+  userId       Int
+  postOption   PostOption @relation(fields: [postOptionId], references: [id])
+  postOptionId Int
+  vote         Int
+}
+
+model Reply {
+  id          Int         @id @default(autoincrement())
+  content     String
+  published   Boolean     @default(false)
+  author      User        @relation(fields: [userId], references: [id])
+  userId      Int
+  post        Post        @relation(fields: [postId], references: [id])
+  postId      Int
+  replyId     Int?
+  parentReply Reply?      @relation("ReplyToReply", fields: [replyId], references: [id])
+  replies     Reply[]     @relation("ReplyToReply")
+  ReplyVote   ReplyVote[]
+}
+
+model ReplyVote {
+  id      Int   @id @default(autoincrement())
+  voter   User  @relation(fields: [userId], references: [id])
+  userId  Int
+  reply   Reply @relation(fields: [replyId], references: [id])
+  replyId Int
+  vote    Int
+
+  @@unique([userId, replyId])
+}
