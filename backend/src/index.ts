@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client'
 import { z } from 'zod';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import cors from 'cors'
+import { crypt } from './crypt';
 
 const prisma = new PrismaClient()
 const app = express();
@@ -41,7 +42,11 @@ const appRouter = router({
 			const { input } = opts
 
 			const user = await prisma.user.create({
-				data: input
+				data: {
+					publicId: input.publicId,
+					email: input.email,
+					password: crypt(input.password)
+				}
 			})
 
 			return user
