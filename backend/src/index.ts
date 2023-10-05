@@ -1,23 +1,28 @@
-import express from 'express';
-import { router, publicProcedure, context } from './trpc'
-import { inferAsyncReturnType } from '@trpc/server'
+import express, { json, Request, Response, NextFunction } from 'express';
+import { router, publicProcedure, context, protectedProcedure } from './trpc'
 import { PrismaClient } from '@prisma/client'
 import { z } from 'zod';
 import * as trpcExpress from '@trpc/server/adapters/express';
 import cors from 'cors'
-import { crypt } from './crypt';
+import { crypt, compare } from './crypt';
+import 'dotenv/config'
+import { createSession } from './utils/jwt.util';
+import { TRPCError } from '@trpc/server';
 
 const prisma = new PrismaClient()
 const app = express();
 const PORT = 3000;
 
+app.use(json());
 
-
-// app.get('/', (req, res) => {
-// 	res.send('Hello World with TypeScript and Hot Reload! edited');
-// });
-
-
+app.use((req: Request, res: Response, next: NextFunction) => {
+	const authHeader = req.headers.authorization;
+	if (authHeader) {
+		const token = authHeader.split(' ')[1];
+		(req as any)['token'] = token;
+	}
+	next();
+});
 
 const appRouter = router({
 	userList: publicProcedure
@@ -50,7 +55,62 @@ const appRouter = router({
 			})
 
 			return user
-		})
+		}),
+	signin: publicProcedure
+		.input(z.object({ username: z.string(), password: z.string() }))
+		.mutation(async ({ input }) => {
+			const user = await prisma.user.findUnique({
+				where: {
+					publicId: input.username,
+				},
+			});
+			if (!user) throw new Error('Invalid credentials');
+
+			const doPasswordsMatch = compare(input.password, user.password);
+			if (!doPasswordsMatch) throw new Error('Invalid credentials');
+
+			const token = await createSession(user);
+
+			return { token };
+
+		}),
+	signup: publicProcedure
+		.input(z.object({ email: z.string(), username: z.string(), password: z.string() }))
+		.mutation(async ({ input }) => {
+			const { email, username, password } = input
+
+			const hashedPassword = crypt(password);
+
+			const existingEmail = await prisma.user.findUnique({
+				where: {
+					email,
+				},
+			});
+
+			if (existingEmail) {
+				throw new TRPCError({
+					message: 'The email is already in use',
+					code: 'BAD_REQUEST',
+				});
+			}
+
+			const user = await prisma.user.create({
+				data: {
+					publicId: username,
+					email,
+					password: hashedPassword
+				},
+			});
+
+			const token = await createSession(user);
+
+			return { token };
+		}),
+	protected: protectedProcedure
+		.query(({ ctx }) => {
+			return ctx.user
+		}),
+
 })
 
 app.use(cors())
