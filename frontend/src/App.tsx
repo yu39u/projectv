@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink } from "@trpc/client";
 import React, { useState } from "react";
 import { trpc } from "./utils/trpc";
+import Signup from "@/pages/Signup";
 
 export function App() {
   const [queryClient] = useState(() => new QueryClient());
@@ -39,6 +40,7 @@ export function App() {
                 <Route path="*" element={<PageNotFound />} />
                 <Route path="about" element={<About />} />
                 <Route path="alert" element={<AlertDialogExa />} />
+                <Route path="signup" element={<Signup />} />
               </Route>
             </Routes>
           </Router>
